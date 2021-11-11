@@ -106,7 +106,7 @@ where each line corresponds to one floating point instruction.
 
 The problem here is that the compiler generally isn't allowed to make this optimization:
 it requires evaluating the sum in a different association grouping than was specified in
-the code, and so can give different results. Though in this case it is likely harmless (or
+the code, and so can give different results[^4]. Though in this case it is likely harmless (or
 may even improve accuracy[^2]), this is not always the case.
 
 ### Compensated arithmetic
@@ -169,6 +169,14 @@ experience](https://github.com/JuliaCI/BaseBenchmarks.jl/issues/253#issuecomment
 
 ##  What can programmers do?
 
+> I hold that in general it’s simply intractable to “defensively” code against the transformations that `-ffast-math` may or may not perform. If a sufficiently advanced compiler is indistinguishable from an adversary, then giving the compiler access to `-ffast-math` is gifting that enemy nukes. That doesn’t mean you can’t use it! You just have to test enough to gain confidence that no bombs go off with your compiler on your system.
+
+&mdash; [Matt Bauman](https://discourse.julialang.org/t/when-if-a-b-x-1-a-b-divides-by-zero/7154/5?u=simonbyrne)
+
+The core problem for programmers is that it is hard to deal with the downsides of
+fast-math while retaining the desired features: e.g. you can't check for infinities because your
+compiler will get rid of the checks.
+
 I've joked on Twitter that "friends don't let friends use fast-math", but with the luxury
 of a longer format, I will concede that it has  valid use cases. Primarily,
 it can actually give valuable performance improvements, and as SIMD lanes get wider and
@@ -179,18 +187,17 @@ Firstly, if you don't care about the accuracy of the results: I come from a scie
 computing background where the primary output of a program is a bunch of numbers. But
 floating point arithmetic is used in many domains where that is not the case, such as
 audio, graphics, games, and machine learning. I'm not particularly familiar with
-requirements in these domains, but there is an interesting rant from [Linus Torvalds 20
+requirements in these domains, but there is an interesting rant by [Linus Torvalds from 20
 years ago](https://gcc.gnu.org/legacy-ml/gcc/2001-07/msg02150.html), arguing that overly
 strict floating point semantics are of little importance outside scientific
 domains. Nevertheless, [some
 anecdotes](https://twitter.com/supahvee1234/status/1382907921848221698) suggest fast-math
-can cause issues, so it is probably still useful understand what it does and
+can cause problems, so it is probably still useful understand what it does and
 why. If you work in these areas, I would love to hear about your experiences, especially
-if you identified which of these optimizations has a positive or negative impact.
+if you identified which of these optimizations had a positive or negative impact.
 
 In cases where you do care about the numerical accuracy of the output, fast-math still
-give very useful valuable improvements.  In fact, as newer processors are adding wider
-SIMD operations, the optimizations it enables are become increasingly valuable.
+give very useful valuable improvements. 
 At the very least, it can provide a useful reference for what performance is left on the
 table. A typical process might be:
 
@@ -208,6 +215,9 @@ table. A typical process might be:
 
 5. Validate the final numeric results
 
+
+
+
 Additionally, you can look into alternative mechanisms to obtain optimizations: for SIMD
 operations in particulat, tools such as
 [OpenMP](https://www.openmp.org/spec-html/5.0/openmpsu42.html) or
@@ -222,6 +232,11 @@ but this requires considerably more effort and expertise, and can be difficult t
 new platforms.
 
 ## What can language and compilers developers do?
+
+Fundamentally, I think the widespread use of fast-math should be considered a fundamental design
+failure: by failing to provide programmers with features they need to make the best use of
+modern hardware, programmers are instead encouraged to enable an option that is known to
+be blatantly unsafe.
 
 Firstly, GCC should address the FTZ issue: the bug has been [open for 9 years, but is
 still marked NEW](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=55522). At the very least,
@@ -239,22 +254,24 @@ the optimizations.
 
 Secondly, languages and compilers need to provide better tools to get the job
 done. Ideally these behaviors shouldn't be enabled or disabled via a compiler flag, which
-is a very blunt tool, but specified in the code itself, for example
+is a very blunt tool, but specified locally in the code itself, for example
 
 * Both GCC and Clang let you [enable/disable optimizations on a per-function basis](https://stackoverflow.com/a/40702790/392585): these should be standardized to work with all compilers.
 
 * There should be options for even finer control, such as a pragma or macro so that users can assert that "under no circumstances should this `isnan` check be removed/this arithmetic expression be reassociated".
 
-* Conversely, a mechanism to flag certain addition or subtraction operations which the compiler is allowed to reassociate (or contract into a fused-multiply-add operation) regardless of compiler flags.[^3] 
+* Conversely, a mechanism to flag certain addition or subtraction operations which the compiler is allowed to reassociate (or contract into a fused-multiply-add operation) regardless of compiler flags.[^3]
 
-Fundamentally, I think the widespread use of fast-math should be considered a fundamental design
-failure: by failing to provide programmers with features they need to make the best use of
-modern hardware, programmers are instead encouraged to enable an option that is known to
-be blatantly unsafe.
-
+That said, this still leaves open the exact question of what the semantics should be: if
+you combine a regular `+` and a fast-math `+`, can they reassociate? What should the
+scoping rules be, and how should it interact with things like inter-procedural
+optimization? These are hard yet very important questions, but they need to be answered for
+programmers to be able to make use of these features safely.
 
 [^1]: Apparently `-fno-math-errno` in GCC [can affect `malloc`](https://twitter.com/kwalfridsson/status/1450556903994675205), so may not be quite so harmless.
 
-[^2]: One of the simplest results in numerical analysis is that [the error bound on summation is proportional to the sum of the absolute values of the intermediate sums](https://www.google.com/books/edition/Accuracy_and_Stability_of_Numerical_Algo/5tv3HdF-0N8C?hl=en&gbpv=1&pg=PA82&printsec=frontcover). SIMD summation splits the accumulation over multiple values, so will typically give smaller intermediate sums.
+[^4]: In fact, it possible to construct array such that taking the sum in different ways can produce [almost any floating point value](https://discourse.julialang.org/t/array-ordering-and-naive-summation/1929?u=simonbyrne).
+
+[^2]: One important result in numerical analysis is that [the error bound on summation is proportional to the sum of the absolute values of the intermediate sums](https://www.google.com/books/edition/Accuracy_and_Stability_of_Numerical_Algo/5tv3HdF-0N8C?hl=en&gbpv=1&pg=PA82&printsec=frontcover). SIMD summation splits the accumulation over multiple values, so will typically give smaller intermediate sums.
 
 [^3]: Rust provides something like this via [experimental intrinsics](https://stackoverflow.com/a/40707111/392585), though I'm not 100% clear on what optimzations are allowed.
