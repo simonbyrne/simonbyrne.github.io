@@ -216,8 +216,6 @@ table. A typical process might be:
 5. Validate the final numeric results
 
 
-
-
 Additionally, you can look into alternative mechanisms to obtain optimizations: for SIMD
 operations in particulat, tools such as
 [OpenMP](https://www.openmp.org/spec-html/5.0/openmpsu42.html) or
@@ -230,6 +228,10 @@ Alternatively, one can manually use SIMD intrinsics: these are commonly used in
 libraries, often with the help of code generation (for example [FFTW](http://fftw.org/)),
 but this requires considerably more effort and expertise, and can be difficult to port to
 new platforms.
+
+And if you're writing a library for others to use, don't [hardcode fast-math into your
+Makefile](https://github.com/tesseract-ocr/tesseract/blob/5884036ecdb2807419cbd21b7ca44b630f547d80/Makefile.am#L140).
+
 
 ## What can language and compilers developers do?
 
