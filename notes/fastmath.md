@@ -47,7 +47,7 @@ true (it evaluates false if `x` is a NaN).
 This sounds great! My code doesn't generate any NaNs or Infs, so this shouldn't cause any
 problems.
 
-But what if your code does generate any intermediate NaNs only because it internally calls
+But what if your code doesn't generate any intermediate NaNs only because it internally calls
 `isnan` to ensure that they are correctly handled?
 
 ~~~
