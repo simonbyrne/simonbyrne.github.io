@@ -10,6 +10,7 @@ Plug in the list of blog posts contained in the `/notes/` folder.
         ps  = splitext(page)[1]
         url = "/notes/$ps/"
         surl = strip(url, '/')
+        pagevar(surl, :date)
         return Date(pagevar(surl, :date))
     end
     sort!(list, by=date_sorter, rev=true)

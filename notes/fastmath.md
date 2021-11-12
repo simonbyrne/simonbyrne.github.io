@@ -1,5 +1,5 @@
 @def title = "Beware of fast-math"
-@def date = "2021-11-18"
+@def date = "2021-11-12"
 @def tags = ["C", "fast-math", "compilers"]
 
 # {{title}}
@@ -142,13 +142,21 @@ above:
 <iframe width="100%" height="600px" src="https://gcc.godbolt.org/e#z:OYLghAFBqd5TKALEBjA9gEwKYFFMCWALugE4A0BIEAZgQDbYB2AhgLbYgDkAjF%2BTXRMiAZVQtGIHgBYBQogFUAztgAKAD24AGfgCsp5eiyagA%2BudTkVjVEQJDqzTAGF09AK5smUgMzknADIETNgAcp4ARtikIABM5AAO6ErE9kyuHl6%2BicmpQkEh4WxRMfHW2LZpIkQspEQZnt48fuWVQtW1RAVhkdFxVjV1DVnNA53dRSVxAJRW6O6kqJxcNPToLEQA1EqetGsbmwBUm7Wk05sApADsAEIXWgCCm8%2Bbq%2BtbShc%2Bd48vm8FbAhfH5PF5KS4%2BAAimy0ADotDRgfdQc9BKRNhACBDoVpgf8Ic5NrEAKwANjxQNidypm3O1xBf2e4K%2B0OZNNOF2JN3xnOheORL2ukIFz1I2CICyY2yRjyFyK4s3o3GJ/G8XB05HQ3EJSnmi2wl1iPj45CI2gVswA1iBiVpDNxpPw2Da7WqNVquPwlCA7Wb1QryHBYCgMGwEgxopRqKHw4wYqhgDwePE6PQiNFvRAIubyBFgrUAJ7cE2hjjCADyTHoRf95BwbGMwEktcIYsqADdsN7a9h1BV3Oni/wAdglbX6AQIqRC64cDmiKQCM7eAHVixgEoAGoEbAAd3LCWYQ7kwjEEk4MhPihUGhz%2Bh4hkbIHMpksE4i3sgs3QCTsQm7AC05Y%2BJsAE0DQLBKEQAENkQSBeqOFR/t4EBOMMTT%2BEwmATL0MQPkkKTIehBgEXkTA4cUfQPq0yEdEMbiNAYNFVIMXTBD0lF4WM9GZBhUHjOxkxUbMuoLEsBgLtgyx8IqyqqjmHrqAAHKSAGktImzAKgqCbEmsKxBizjkJs%2BDEGQhrGsZrhhhG6IXEaPDTPwfo6NMsxINgLA4DEEBWi69pcI65BuvwHpej6prmm5AWxE6IA%2BNIsKkjwWjSFcJLSDwtpXFofghZq3DOVFgaIEGyBoFgeCECQFBULQEasBwx6CKe4iSJeLXXmomi1vo8RGCYz4WHMYnLG8Bw7GwpiWiwSDGHs7xHCcpBnJctwiqi%2BwfMZlibEQxkFjKKL/MI/xHX8zJQpsOksjC8KIt8G2vOZmLYjCFIEkSZIUvZ1LcnS62/IyBZvRyXJAsS0IAdd52Mlst1styh2PUDfw3VdEBbNDSjnNDyMMoyl3QkQsNrcKqNihKpBSp8KMPHKjwBmOKrBQp2rbHqSwWbFkX%2BtFHleX0vnkNatoBUFzo%2BFcsLEqztZhVYEUuQGZUQCG6A2XGUYQDGtloImyYCAw6akJm2a1nmrCkDWJYa2WRCVtWOb1o2zYaq2SEEJ23Yar2/aDiulDCKOObvtO1uzssGoLkuQ6zGuG7bnuB5HoHnVnu1sidco3V3v0A1mMN76fsLP7IYBwGgeBkHQbB8FWIhbQoWhDEjJh2GCbhJG5ERrcYaRyEUVM1GN7RrHESPNhjwJhRd9R4990xrFD8JI36v0knSUzcly%2B63DKap6madpuk8PphnGaZNXc1ZGuxtE3NObzrnuZ53nUH5YtjkF%2BUK96vpRVklwHmktYjwjJDwAAnJlEkWVIHqV3qFQqz8ValRQIQcC2t05tQvFneQOdbzjiQN6B89BiEYJoEQAsh4IqkGIf0OhSgKFUJoVoIBLNf7cEhAQcCmwk67gfgfNSGktI6T0gZds4IhFH1EaffSRU%2BZAIlvFHwsIfDqI0ZozRiCCqekVgAxRIspBaDhCYsx5jzGkO4D4eS8tkHK2ip2U2aQQDSCAA"></iframe>
 ~~~
 
-It gives _exactly_ the same assembly as the original summation code above. It reassociates
-the addition, then removes a bunch of the terms which are now deemed to be redundant, and
-so it optimizes back to a SIMD summation loop.
+It gives _exactly_ the same assembly as the original summation code above. Why?
+
+If you substitute the expression for `t` into `c`, you get
+```C
+c = ((s + y) - s) - y);
+```
+and by applying reassociation, the compiler will then determine that `c` is in fact always zero, and so may be completely removed. Following this logic further, `y = arr[i]` and so the inside of the loop is simply
+```C
+s = s + arr[i];
+```
+and hence it "optimizes" identically to the simple summation loop above.
 
 This might seem like a minor tradeoff, but compensated arithmetic is often used to
 implement core math functions, such as trigonometric and exponential functions. Allowing
-the compiler to reassociate in these can give [catastrophically wrong
+the compiler to reassociate inside these can give [catastrophically wrong
 answers](https://github.com/JuliaLang/julia/issues/30073#issuecomment-439707503).
 
 ## Flushing subnormals to zero
