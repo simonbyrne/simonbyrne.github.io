@@ -15,7 +15,7 @@ the compilers themselves), I decided it would make a good inaugural topic for th
 It's a compiler flag or option that exists in many languages and compilers, including:
 
 * `-ffast-math` (and included by `-Ofast`) in [GCC](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html) and [Clang](https://clang.llvm.org/docs/UsersManual.html#cmdoption-ffast-math)
-* `-fp-model=fast` in [ICC](https://www.intel.com/content/www/us/en/develop/documentation/cpp-compiler-developer-guide-and-reference/top/compiler-reference/compiler-options/compiler-option-details/floating-point-options/fp-model-fp.html)
+* `-fp-model=fast` (the default) in [ICC](https://www.intel.com/content/www/us/en/develop/documentation/cpp-compiler-developer-guide-and-reference/top/compiler-reference/compiler-options/compiler-option-details/floating-point-options/fp-model-fp.html)
 * `/fp:fast` in [MSVC](https://docs.microsoft.com/en-us/cpp/build/reference/fp-specify-floating-point-behavior?view=msvc-170)
 * [`--math-mode=fast` command line option](https://docs.julialang.org/en/v1/manual/command-line-options/#command-line-options) or [`@fastmath` macro](https://docs.julialang.org/en/v1/base/math/#Base.FastMath.@fastmath) in Julia.
 
