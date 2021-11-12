@@ -32,7 +32,7 @@ In [GCC](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html), `-ffast-math
 Now some of these are unlikely to cause problems in most cases: `-fno-math-errno`[^1], `-fno-signaling-nans`, `-fno-trapping-math` disable rarely-used (and poorly supported) features. Others, such as `-freciprocal-math` can reduce accuracy slightly, but are unlikely to cause problems in most cases.
 
 [Krister Walfridsson](https://kristerw.github.io/2021/10/19/fast-math/) gives a very nice
-(and somewhat more objective) description of some of these, but I want to focus three in
+(and somewhat more objective) description of some of these, but I want to focus on three in
 particular.
 
 ## [`-ffinite-math-only`](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-ffinite-math-only)
