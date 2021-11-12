@@ -39,9 +39,16 @@ particular.
 
 > Allow optimizations for floating-point arithmetic that assume that arguments and results are not NaNs or +-Infs.
 
-Sounds great! My code doesn't generate any NaNs or Infs, so this shouldn't cause any problems.
+The intention here is to allow the compiler to perform some [extra
+optimizations](https://stackoverflow.com/a/10145714/392585) that would not be correct if
+NaNs or Infs were present: for example the condition `x == x` can be assumed to always be
+true (it evaluates false if `x` is a NaN).
 
-But what if your code does generate any intermediate NaNs or Infs, but has internal checks that handles them correctly?
+This sounds great! My code doesn't generate any NaNs or Infs, so this shouldn't cause any
+problems.
+
+But what if your code does generate any intermediate NaNs only because it internally calls
+`isnan` to ensure that they are correctly handled?
 
 ~~~
 <iframe width="100%" height="400px" src="https://gcc.godbolt.org/e#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAMzwBtMA7AQwFtMQByARg9KtQYEAysib0QXACx8BBAKoBnTAAUAHpwAMvAFYTStJg1AB9U8lJL6yAngGVG6AMKpaAVxYMQAJlIOAMngMmABy7gBGmMQg0gAOqAqEtgzObh7epHEJNgIBQaEsEVHSlpjWSUIETMQEKe6ePiVlAhVVBLkh4ZHRFpXVtWkNvW2BHQVdkgCUFqiuxMjsHACkXgDMgchuWADUiyuOLEwECAB0CLvYixoAgoEEW/yo1LSoh/cTOwDsAEKXV1v/W2ImAIswYWzwCmYDGoE12P2uiw%2BABEOFNaJwAKy8TwcLSkVCcRxbBQzOaYHarHikAiaVFTADW0Q%2Bxw%2BAE4AByrdkY1kadkfLwffScSS8FgSDQaUg4vEEji8BQgKU03Go0hwWAwRAoVAsGJ0SLkShoPUGqLIYBcLg%2BGi0AiRRUQMK00hhQJVACenCpJrYggA8gxaF7VaQsAcjOJQ/ggWUAG6YRWhzCqUque3e3i3TDo0O0PBhYie5xYF0EYh4cXcNVUAzABQANTwmAA7v6YoxMzJBCIxOwpN35Eo1C7dFx9IYTGZ9AXFZApqgYtkGEmALRUKhMBQEVcHI5bVf%2BlYKnOlZf2BhOFx1CQ%2BfwjfKFEArDLxRICfqea2vrJJdqProX0aZcWj6a80m/YDyiGf9OiiIChk/W8elaWCxngqYSVmeY9HLTAFh4NFMWxF05VUdkADZVwoyQtmAZBkC2K1ji8LYIEcUgtlwQgSApFZxy2ZxTXoYg%2BK4CZeBVLQJimBBMCYLAoggBkQAxKVc1FUhxTU6VSM4BUlWpWkpg1bUTX1ESjQgcyzRQDZJy4FZJT4Oh7WIR1nVDN1mGIEMfV1P0CEDYMXXDScozxGMzzwBMkzxFM0wzatyEEHMXXzQtiwwBY8XLStMymWsmHrJtW3bTtkv4HtRHEAcqqHFR1FDXQfAMIwQFMYxzAyudlPxJckjXDctx3PcEAPI8Tysc8IAcJDx3vPI4L0TJ32ScCvx/Na0KfccoOaRCNr0faGFA4YlvQ47DtSTbt1Qh9lvE6ZsP7akgQItVcyxXTQzIyjqNo%2ByjCYlZjg0MG2I4rj8CIUTln4zihIsyI%2BK8CSjNVGTSDkhSuj6jSxVUqUZV4OUDOVYyVIxLwWI0LgPgoqQNFZa0PhfXNjx%2B2V9Ix6SiI4LwSN%2BnmpLpUgE3cpJoiAA%3D"></iframe>
@@ -53,6 +60,15 @@ But what if your code does generate any intermediate NaNs or Infs, but has inter
 That's right, your compiler has just removed all those checks.
 
 Depending on who you ask, this is either obvious ("you told the compiler there were no NaNs, so why does it need to check?") or ridiculous ("how can we safely optimize away NaNs if we can't check for them?"). Even compiler developers [can't agree](https://twitter.com/johnregehr/status/1440021297103134720).
+
+This is perhaps the single most frequent cause of fast-math-related
+[StackOverflow](https://stackoverflow.com/a/22931368/392585 )
+[questions](https://stackoverflow.com/q/7263404/392585) and
+[GitHub](https://github.com/numba/numba/issues/2919)
+[bug](https://github.com/google/jax/issues/276 )
+[reports](https://github.com/pytorch/glow/issues/2073), and so if your fast-math-compiled
+code is giving wrong results, the very first thing you should do is disable this option
+(`-fno-finite-math-only`).
 
 ##  [`-fassociative-math`](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-fassociative-math)
 
@@ -130,13 +146,16 @@ It gives _exactly_ the same assembly as the original summation code above. It re
 the addition, then removes a bunch of the terms which are now deemed to be redundant, and
 so it optimizes back to a SIMD summation loop.
 
-Compensated arithmetic is typically used in pretty low-level code such as math libraries,
-where it is used to get extra precision for intermediate calculations. Fast-math may
-just optimize the whole lot away.
+This might seem like a minor tradeoff, but compensated arithmetic is often used to
+implement core math functions, such as trigonometric and exponential functions. Allowing
+the compiler to reassociate in these can give [catastrophically wrong
+answers](https://github.com/JuliaLang/julia/issues/30073#issuecomment-439707503).
 
 ## Flushing subnormals to zero
 
-This one is by far the most insidious, as it can affect code compiled _without_ fast-math, and is only cryptically documented under `-funsafe-math-optimizations`:
+This one is the most subtle, but by far the most insidious, as it can affect code compiled
+_without_ fast-math, and is only cryptically documented under
+`-funsafe-math-optimizations`:
 
 > When used at link time, it may include libraries or startup files that change the default FPU control word or other similar optimizations.
 
@@ -144,15 +163,13 @@ So what does that mean? Well this is referring to one of those slightly annoying
 cases of floating point numbers, _subnormals_ (sometimes called _denormals_). [Wikipedia gives a decent
 overview](https://en.wikipedia.org/wiki/Subnormal_number), but for our purposes the main
 thing you need to know is (a) they're _very_ close to zero, and (b) when encountered, they
-can incur a significant performance penalty on many processors (here is a [good
-description of why that is the case](https://stackoverflow.com/a/54938328)).
+can incur a significant performance penalty on many processors[^6].
 
 A simple solution to this problem is "flush to zero" (FTZ): that is, if a result would
 return a subnormal value, return zero instead. This is actually fine for a lot of use
 cases, and this setting is commonly used in audio and graphics applications. But there are
 plenty of use cases where it isn't fine: FTZ breaks some important floating point error
-analysis results, such as the [Sterbenz
-Lemma](https://en.wikipedia.org/wiki/Sterbenz_lemma), and so unexpected results (such as
+analysis results, such as [Sterbenz' Lemma](https://en.wikipedia.org/wiki/Sterbenz_lemma), and so unexpected results (such as
 iterative algorithms failing to converge) may occur.
 
 The problem is how FTZ actually implemented on most hardware: it is not set
@@ -169,21 +186,14 @@ experience](https://github.com/JuliaCI/BaseBenchmarks.jl/issues/253#issuecomment
 
 ##  What can programmers do?
 
-> I hold that in general it’s simply intractable to “defensively” code against the transformations that `-ffast-math` may or may not perform. If a sufficiently advanced compiler is indistinguishable from an adversary, then giving the compiler access to `-ffast-math` is gifting that enemy nukes. That doesn’t mean you can’t use it! You just have to test enough to gain confidence that no bombs go off with your compiler on your system.
-
-&mdash; [Matt Bauman](https://discourse.julialang.org/t/when-if-a-b-x-1-a-b-divides-by-zero/7154/5?u=simonbyrne)
-
-The core problem for programmers is that it is hard to deal with the downsides of
-fast-math while retaining the desired features: e.g. you can't check for infinities because your
-compiler will get rid of the checks.
-
 I've joked on Twitter that "friends don't let friends use fast-math", but with the luxury
-of a longer format, I will concede that it has  valid use cases. Primarily,
-it can actually give valuable performance improvements, and as SIMD lanes get wider and
-instructions get fancier, the value of these optimizations will only increase. So when and
-how can it be safely used?
+of a longer format, I will concede that it has valid use cases, and can actually give
+valuable performance improvements; as SIMD lanes get wider and instructions get fancier,
+the value of these optimizations will only increase. At the very least, it can provide a
+useful reference for what performance is left on the table. So when and how can it be
+safely used?
 
-Firstly, if you don't care about the accuracy of the results: I come from a scientific
+One reason is if you don't care about the accuracy of the results: I come from a scientific
 computing background where the primary output of a program is a bunch of numbers. But
 floating point arithmetic is used in many domains where that is not the case, such as
 audio, graphics, games, and machine learning. I'm not particularly familiar with
@@ -192,14 +202,22 @@ years ago](https://gcc.gnu.org/legacy-ml/gcc/2001-07/msg02150.html), arguing tha
 strict floating point semantics are of little importance outside scientific
 domains. Nevertheless, [some
 anecdotes](https://twitter.com/supahvee1234/status/1382907921848221698) suggest fast-math
-can cause problems, so it is probably still useful understand what it does and
-why. If you work in these areas, I would love to hear about your experiences, especially
-if you identified which of these optimizations had a positive or negative impact.
+can cause problems, so it is probably still useful understand what it does and why. If you
+work in these areas, I would love to hear about your experiences, especially if you
+identified which of these optimizations had a positive or negative impact.
 
-In cases where you do care about the numerical accuracy of the output, fast-math still
-give very useful valuable improvements. 
-At the very least, it can provide a useful reference for what performance is left on the
-table. A typical process might be:
+
+> I hold that in general it’s simply intractable to “defensively” code against the transformations that `-ffast-math` may or may not perform. If a sufficiently advanced compiler is indistinguishable from an adversary, then giving the compiler access to `-ffast-math` is gifting that enemy nukes. That doesn’t mean you can’t use it! You just have to test enough to gain confidence that no bombs go off with your compiler on your system.
+
+&mdash; [Matt Bauman](https://discourse.julialang.org/t/when-if-a-b-x-1-a-b-divides-by-zero/7154/5?u=simonbyrne)
+
+If you do care about the accuracy of the results, then you need to approach fast-math much
+more carefully and warily. A common approach is to enable fast-math everywhere, observe
+erroneous results, and then attempt to isolate and fix the cause as one would usually approach a
+bug. Unfortunately this task is not so simple: you can't insert branches to check for NaNs
+or Infs (the compiler will just remove them), you can't rely on a debugger because [the bug may disappear in debug builds](https://gitlab.com/libeigen/eigen/-/issues/1674#note_709679831), and it can even [break printing](https://bugzilla.redhat.com/show_bug.cgi?id=1127544).
+
+So you have to approach fast-math much more carefully. A typical process might be:
 
 1. Develop reliable validation tests
 
@@ -207,42 +225,48 @@ table. A typical process might be:
 
 3. Enable fast-math and compare benchmark results
 
-4. Selectively enable/disable fast-math optimizations to identify
+4. Selectively enable/disable fast-math optimizations[^5] to identify
 
-    a. which optimizations have a performance impact, and
+    a. which optimizations have a performance impact,
     
-    b. where in the code that impact arises
+    b. which cause problems, and
+    
+    c. where in the code those changes arise.
 
 5. Validate the final numeric results
 
+The aim of this process should be to use the absolute minimum number of fast-math options,
+in the minimum number of places, while testing to ensure that the places where the
+optimizations are used remain correct.
 
-Additionally, you can look into alternative mechanisms to obtain optimizations: for SIMD
-operations in particulat, tools such as
-[OpenMP](https://www.openmp.org/spec-html/5.0/openmpsu42.html) or
-[ISPC](https://ispc.github.io/) provide constructions to write code that is amenable to
+Alternatively, you can look into other approaches to achieve the same performance
+benefits: in some cases it is possible to rewrite the code to achieve the same results:
+for example, it is not uncommon to see expressions like `x * (1/y)` in many scientific
+codebases.
+
+For SIMD operations, tools such as [OpenMP](https://www.openmp.org/spec-html/5.0/openmpsu42.html)
+or [ISPC](https://ispc.github.io/) provide constructions to write code that is amenable to
 automatic SIMD optimizations. Julia provides the [`@simd`
 macro](https://docs.julialang.org/en/v1/base/base/#Base.SimdLoop.@simd), though this also
-has some important caveats on its use.
+has some important caveats on its use. At the more extreme end, you can use [SIMD
+intrinsics](https://stackoverflow.blog/2020/07/08/improving-performance-with-simd-intrinsics-in-three-use-cases/):
+these are commonly used in libraries, often with the help of code generation ([FFTW](http://fftw.org/) uses this appraoch), but requires considerably more effort and expertise, and
+can be difficult to port to new platforms.
 
-Alternatively, one can manually use SIMD intrinsics: these are commonly used in
-libraries, often with the help of code generation (for example [FFTW](http://fftw.org/)),
-but this requires considerably more effort and expertise, and can be difficult to port to
-new platforms.
-
-And if you're writing a library for others to use, don't [hardcode fast-math into your
-Makefile](https://github.com/tesseract-ocr/tesseract/blob/5884036ecdb2807419cbd21b7ca44b630f547d80/Makefile.am#L140).
+Finally, if you're writing an open source library, please don't [hardcode fast-math into your Makefile](https://github.com/tesseract-ocr/tesseract/blob/5884036ecdb2807419cbd21b7ca44b630f547d80/Makefile.am#L140).
 
 
 ## What can language and compilers developers do?
 
-Fundamentally, I think the widespread use of fast-math should be considered a fundamental design
+I think the widespread use of fast-math should be considered a fundamental design
 failure: by failing to provide programmers with features they need to make the best use of
-modern hardware, programmers are instead encouraged to enable an option that is known to
+modern hardware, programmers instead resort to enabling an option that is known to
 be blatantly unsafe.
 
-Firstly, GCC should address the FTZ issue: the bug has been [open for 9 years, but is
-still marked NEW](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=55522). At the very least,
-this behavior should be more clearly documented, and have a specific option to disable it.
+Firstly, GCC should address the FTZ library issue: the bug has been [open for 9 years, but
+is still marked NEW](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=55522). At the very
+least, this behavior should be more clearly documented, and have a specific option to
+disable it.
 
 Beyond that, there are 2 primary approaches: educate users, and provide finer control over
 the optimizations.
@@ -264,7 +288,7 @@ is a very blunt tool, but specified locally in the code itself, for example
 
 * Conversely, a mechanism to flag certain addition or subtraction operations which the compiler is allowed to reassociate (or contract into a fused-multiply-add operation) regardless of compiler flags.[^3]
 
-That said, this still leaves open the exact question of what the semantics should be: if
+This still leaves open the exact question of what the semantics should be: if
 you combine a regular `+` and a fast-math `+`, can they reassociate? What should the
 scoping rules be, and how should it interact with things like inter-procedural
 optimization? These are hard yet very important questions, but they need to be answered for
@@ -275,5 +299,9 @@ programmers to be able to make use of these features safely.
 [^4]: In fact, it possible to construct array such that taking the sum in different ways can produce [almost any floating point value](https://discourse.julialang.org/t/array-ordering-and-naive-summation/1929?u=simonbyrne).
 
 [^2]: One important result in numerical analysis is that [the error bound on summation is proportional to the sum of the absolute values of the intermediate sums](https://www.google.com/books/edition/Accuracy_and_Stability_of_Numerical_Algo/5tv3HdF-0N8C?hl=en&gbpv=1&pg=PA82&printsec=frontcover). SIMD summation splits the accumulation over multiple values, so will typically give smaller intermediate sums.
+
+[^6]: [A good description of why subnormals incur performance penalties](https://stackoverflow.com/a/54938328).
+
+[^5]: As mentioned above, `-fno-finite-math-only` should be the first thing you try.
 
 [^3]: Rust provides something like this via [experimental intrinsics](https://stackoverflow.com/a/40707111/392585), though I'm not 100% clear on what optimzations are allowed.
