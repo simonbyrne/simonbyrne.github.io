@@ -302,6 +302,8 @@ scoping rules be, and how should it interact with things like inter-procedural
 optimization? These are hard yet very important questions, but they need to be answered for
 programmers to be able to make use of these features safely.
 
+For more discussion, see [HN](https://news.ycombinator.com/item?id=29201473).
+
 [^1]: Apparently `-fno-math-errno` in GCC [can affect `malloc`](https://twitter.com/kwalfridsson/status/1450556903994675205), so may not be quite so harmless.
 
 [^4]: In fact, it possible to construct array such that taking the sum in different ways can produce [almost any floating point value](https://discourse.julialang.org/t/array-ordering-and-naive-summation/1929?u=simonbyrne).
