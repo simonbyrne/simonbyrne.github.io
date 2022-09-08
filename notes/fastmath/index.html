@@ -72,6 +72,16 @@ s = sa + sb;</code></pre> <p>where each line corresponds to one floating point i
 </ul>
 <p>This still leaves open the exact question of what the semantics should be: if you combine a regular <code>&#43;</code> and a fast-math <code>&#43;</code>, can they reassociate? What should the scoping rules be, and how should it interact with things like inter-procedural optimization? These are hard yet very important questions, but they need to be answered for programmers to be able to make use of these features safely.</p>
 <p>For more discussion, see <a href="https://news.ycombinator.com/item?id&#61;29201473">HN</a>.</p>
+<h2 id=updates ><a href="#updates" class=header-anchor >Updates</a></h2>
+<p>A few updates since I wrote this note:</p>
+<ul>
+<li><p>Brendan Dolan-Gavitt wrote a fantastic piece about <a href="https://moyix.blogspot.com/2022/09/someones-been-messing-with-my-subnormals.html">FTZ-enabling libraries in Python packages</a>: it also has some nice tips on how to find out if your library was compiled with fast-math.</p>
+
+<li><p>It turns out Clang also enables FTZ when building shared libraries with fast-math: but only if you have a system GCC installation. I&#39;ve <a href="https://github.com/llvm/llvm-project/issues/57589">opened an issue</a>.</p>
+
+<li><p>MSVC doesn&#39;t remove <code>isnan</code> checks, but instead <a href="https://twitter.com/dotstdy/status/1567748577962741760">generates what looks like worse code</a> when compiling with fast-math.</p>
+
+</ul>
 <p><table class=fndef  id="fndef:1">
     <tr>
         <td class=fndef-backref ><a href="#fnref:1">[1]</a>
@@ -111,7 +121,7 @@ s = sa + sb;</code></pre> <p>where each line corresponds to one floating point i
 </p>
 <div class=page-foot >
   <div class=copyright >
-    &copy; Simon Byrne. Last modified: November 12, 2021.
+    &copy; Simon Byrne. Last modified: September 08, 2022.
   </div>
 </div>
 </div>
