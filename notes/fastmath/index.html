@@ -76,10 +76,16 @@ s = sa + sb;</code></pre> <p>where each line corresponds to one floating point i
 <p>A few updates since I wrote this note:</p>
 <ul>
 <li><p>Brendan Dolan-Gavitt wrote a fantastic piece about <a href="https://moyix.blogspot.com/2022/09/someones-been-messing-with-my-subnormals.html">FTZ-enabling libraries in Python packages</a>: it also has some nice tips on how to find out if your library was compiled with fast-math.</p>
+<ul>
+<li><p>He also has a nice proof-of-concept <a href="https://github.com/moyix/2_ffast_2_furious">buffer overflow vulnerability</a>.</p>
+
+</ul>
 
 <li><p>It turns out Clang also enables FTZ when building shared libraries with fast-math: but only if you have a system GCC installation. I&#39;ve <a href="https://github.com/llvm/llvm-project/issues/57589">opened an issue</a>.</p>
 
 <li><p>MSVC doesn&#39;t remove <code>isnan</code> checks, but instead <a href="https://twitter.com/dotstdy/status/1567748577962741760">generates what looks like worse code</a> when compiling with fast-math.</p>
+
+<li><p>The FTZ library issue will be <a href="https://gcc.gnu.org/bugzilla/show_bug.cgi?id&#61;55522#c45">fixed in GCC 13</a>&#33;</p>
 
 </ul>
 <p><table class=fndef  id="fndef:1">
@@ -121,7 +127,7 @@ s = sa + sb;</code></pre> <p>where each line corresponds to one floating point i
 </p>
 <div class=page-foot >
   <div class=copyright >
-    &copy; Simon Byrne. Last modified: September 08, 2022.
+    &copy; Simon Byrne. Last modified: April 21, 2023.
   </div>
 </div>
 </div>
