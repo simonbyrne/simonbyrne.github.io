@@ -309,8 +309,10 @@ For more discussion, see [HN](https://news.ycombinator.com/item?id=29201473).
 A few updates since I wrote this note:
 
 - Brendan Dolan-Gavitt wrote a fantastic piece about [FTZ-enabling libraries in Python packages](https://moyix.blogspot.com/2022/09/someones-been-messing-with-my-subnormals.html): it also has some nice tips on how to find out if your library was compiled with fast-math.
+  - He also has a nice proof-of-concept [buffer overflow vulnerability](https://github.com/moyix/2_ffast_2_furious).
 - It turns out Clang also enables FTZ when building shared libraries with fast-math: but only if you have a system GCC installation. I've [opened an issue](https://github.com/llvm/llvm-project/issues/57589).
 - MSVC doesn't remove `isnan` checks, but instead [generates what looks like worse code](https://twitter.com/dotstdy/status/1567748577962741760) when compiling with fast-math.
+- The FTZ library issue will be [fixed in GCC 13](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=55522#c45)!
 
 [^1]: Apparently `-fno-math-errno` in GCC [can affect `malloc`](https://twitter.com/kwalfridsson/status/1450556903994675205), so may not be quite so harmless.
 
