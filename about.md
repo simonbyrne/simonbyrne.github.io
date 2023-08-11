@@ -16,6 +16,8 @@ contributed both to the core language and many packages.
 
 - [GitHub](https://github.com/simonbyrne/)
 - [Twitter](https://twitter.com/SimonPJByrne)
+- [Mastodon](https://fosstodon.org/@simonbyrne)
+- [LinkedIn](https://www.linkedin.com/in/simonpjbyrne/)
 
 # Contact
 
